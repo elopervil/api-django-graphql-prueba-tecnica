@@ -142,7 +142,17 @@ class IdeaQuery(graphene.ObjectType):
     list_followed_ideas = graphene.List(IdeaType, id_user=graphene.ID(required=True))
 
     def resolve_list_all_ideas(self, info):
-        return Idea.objects.all().exclude(visibility='private')
+        user = info.context.user
+        if user.is_anonymous:
+            raise GraphQLError('You must be logged in')
+        try:
+            q1 = user.idea_user.all()
+            q2 = Idea.objects.filter(pub_user__in = user.following.all()).exclude(visibility=Idea.PRIVATE)
+            q3 = Idea.objects.filter(visibility=Idea.PUBLIC)
+            q_final = q3.union(q1, q2).order_by('-pub_date')
+            return q_final
+        except ValidationError as err:
+            raise GraphQLError('Error')
 
     def resolve_list_my_ideas(self, info):
         user = info.context.user
