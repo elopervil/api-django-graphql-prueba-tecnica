@@ -1,6 +1,11 @@
 import graphene
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.shortcuts import get_object_or_404
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.contrib.auth.tokens import default_token_generator
 from graphql import GraphQLError
 from graphene_django import DjangoObjectType
 from graphql_jwt.shortcuts import get_token
@@ -29,6 +34,7 @@ class UserQuery(graphene.ObjectType):
     users = graphene.List(UserType)
     me = graphene.Field(UserType)
     search_users = graphene.List(UserType, username=graphene.String(required=True))
+    forgotten_password = graphene.String(email=graphene.String(required=True))
 
     def resolve_users(self, info):
         return User.objects.all()
@@ -44,6 +50,28 @@ class UserQuery(graphene.ObjectType):
         if user.is_anonymous:
             raise GraphQLError('You must be logged in')
         return User.objects.filter(username__icontains=username).exclude(pk=user.id)
+    
+    def resolve_forgotten_password(self, info, email):
+        user_email = get_object_or_404(User, email=email)
+        if user_email:
+            subject = 'Password Reset Request'
+            email_template_name = 'template_text_email.txt'
+            parameters = {
+                'user': user_email,
+                'email': user_email.email,
+                'domain': '127.0.0.1:8000',
+                'site_name': 'IdeaCreators',
+                'uid': urlsafe_base64_encode(force_bytes(user_email.pk)),
+                'token': default_token_generator.make_token(user_email),
+                'protocol': 'http'
+                }
+            email_render = render_to_string(email_template_name, parameters)
+            try:
+                send_mail(subject, email_render, '', [user_email.email], fail_silently=False)
+                return f'Email sent to {user_email.email}'
+            except:
+                return GraphQLError('Error password reset')
+
     
     
 # User Mutation
