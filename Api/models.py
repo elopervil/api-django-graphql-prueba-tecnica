@@ -50,3 +50,4 @@ class FollowRequest(models.Model):
 
     def __str__(self):
         return f'{self.requester.username} follows {self.to_follow.username}'
+

@@ -5,7 +5,7 @@ from django.test import TestCase
 from graphene_django.utils.testing import GraphQLTestCase
 from graphql_jwt.shortcuts import get_token
 
-from .models import User, Idea
+from .models import User, Idea, FollowRequest
 
 # Create your tests here.
 
@@ -389,11 +389,102 @@ class IdeaMutationTest(GraphQLTestCase):
         self.assertEqual(content, compare)
         
 
+class FollowRequestQueryTest(GraphQLTestCase):
+
+    GRAPHQL_URL = 'http://localhost:8000/graphql/'
+
+    def setUp(self):
+        user1 = User.objects.create(email="test1@test1.com", username="usertest1")
+        user2 = User.objects.create(email="test2@test2.com", username="usertest2")
+        FollowRequest.objects.create(requester=user2, to_follow=user1)
+    
+    def test_resolve_follow_up_request(self):
+        user = User.objects.get(email="test1@test1.com")
+        token = get_token(user)
+        header = {"HTTP_AUTHORIZATION": f"JWT {token}"}
+        response = self.query(
+            '''
+            query{
+                followUpRequest{
+                    requester{
+                        username
+                    }
+                    status
+                }
+            }
+            ''',
+            headers=header
+        )
+        compare = {"data":{"followUpRequest":[{"requester":{"username": "usertest2"},"status":"PENDING"}]}}
+        content = json.loads(response.content)
+        self.assertResponseNoErrors(response)
+        self.assertEqual(content, compare)
 
 
+class FollowRequestMutationTest(GraphQLTestCase):
 
+    GRAPHQL_URL = 'http://localhost:8000/graphql/'
 
-
-
-
+    def setUp(self):
+        user1 = User.objects.create(email="test1@test1.com", username="usertest1")
+        user2 = User.objects.create(email="test2@test2.com", username="usertest2")
+        FollowRequest.objects.create(requester=user2, to_follow=user1)
+    
+    def test_send_follow_request(self):
+        user_req = User.objects.get(email="test1@test1.com")
+        user_foll = User.objects.get(email="test2@test2.com")
+        token = get_token(user_req)
+        header = {"HTTP_AUTHORIZATION": f"JWT {token}"}
+        response = self.query(
+            '''
+            mutation sendFollowRequest($idUser: ID!){
+                sendFollowRequest(idUser: $idUser){
+                    success
+                    error
+                    message
+                    followRequest{
+                        toFollow{
+                            username
+                        }
+                        status
+                    }
+                }
+            }
+            ''',
+            headers=header,
+            variables={'idUser': user_foll.id}
+        )
+        compare = {"data":{"sendFollowRequest":{"success":True,"error":None,"message":"Request send","followRequest":{"toFollow":{"username":"usertest2"},"status":"PENDING"}}}}
+        content = json.loads(response.content)
+        self.assertResponseNoErrors(response)
+        self.assertEqual(content, compare)
+    
+    def test_response_follow_request(self):
+        user = User.objects.get(email="test1@test1.com")
+        f_req = user.follow_recived.first()
+        token = get_token(user)
+        header = {"HTTP_AUTHORIZATION": f"JWT {token}"}
+        response = self.query(
+            '''
+            mutation responseFollowRequest($idRequest: ID!, $response: Boolean!){
+                responseFollowRequest(idRequest: $idRequest, response: $response){
+                    success
+                    error
+                    message
+                    followRequest{
+                        requester{
+                            username
+                        }
+                        status
+                    }
+                }
+            }
+            ''',
+            headers=header,
+            variables={'idRequest': f_req.id, 'response': True}
+        )
+        compare =  {"data":{"responseFollowRequest":{"success":True,"error":None,"message":"Follow request accepted","followRequest":{"requester":{"username":"usertest2"},"status":"ACCEPTED"}}}}
+        content = json.loads(response.content)
+        self.assertResponseNoErrors(response)
+        self.assertEqual(content, compare)
 

@@ -359,4 +359,3 @@ class FollowRequestMutation(graphene.ObjectType):
     send_follow_request = SendFollowRequest.Field()
     response_follow_request = ResponseFollowRequest.Field()
     
-
