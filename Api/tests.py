@@ -18,7 +18,6 @@ class UserQueryTest(GraphQLTestCase):
         User.objects.create(email="test2@test2.com", username="usertest2")
 
     def test_resolve_users(self):
-        compare = {"data":{"users":[{"username":"usertest1","email":"test1@test1.com"}]}}
         response = self.query(
             '''
             query {
@@ -29,6 +28,7 @@ class UserQueryTest(GraphQLTestCase):
             }
             '''
         )
+        compare = {"data":{"users":[{"username":"usertest1","email":"test1@test1.com"},{"username":"usertest2","email":"test2@test2.com"}]}}
         content = json.loads(response.content)
         self.assertResponseNoErrors(response)
         self.assertEqual(content, compare)

@@ -72,8 +72,7 @@ class UserQuery(graphene.ObjectType):
             except:
                 return GraphQLError('Error password reset')
 
-    
-    
+     
 # User Mutation
 
 class Register(graphene.Mutation):
