@@ -1,6 +1,11 @@
 services:
   db:
     image: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - ./data/db:/var/lib/postgresql/data
     environment:
@@ -9,9 +14,10 @@ services:
       - POSTGRES_PASSWORD=postgres
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    command: sh -c 'python manage.py migrate && python manage.py runserver 0.0.0.0:8000'
     volumes:
       - .:/code
+      - ./wait-for-it.sh:/code/wait-for-it.sh
     ports:
       - "8000:8000"
     environment:
@@ -19,4 +25,5 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     depends_on:
-      - db
+      - db 
+    restart: always
